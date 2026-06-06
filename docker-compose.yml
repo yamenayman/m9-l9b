@@ -1,12 +1,16 @@
 services:
-  fuseki:
-    image: stain/jena-fuseki:5.0.0
+  neo4j:
+    image: neo4j:5-community
+    container_name: m9b-lab-9b-neo4j
     ports:
-      - "3030:3030"
+      - "7687:7687"
+      - "7474:7474"
     environment:
-      ADMIN_PASSWORD: admin
-      FUSEKI_DATASET_1: recipes
+      NEO4J_AUTH: neo4j/testtest
+      NEO4J_dbms_memory_heap_max__size: 1G
+      NEO4J_dbms_memory_pagecache_size: 512M
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:3030/$$/ping"]
-      interval: 5s
-      retries: 12
+      test: ["CMD-SHELL", "cypher-shell -a bolt://localhost:7687 -u neo4j -p testtest 'RETURN 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 24

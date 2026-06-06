@@ -1,59 +1,63 @@
-"""Convenience: run the linker over data/dev.jsonl and print P/R/F1.
+"""Run the linker on the dev split and print P/R/F1.
 
-Fully implemented — learners do not modify. Useful for tuning
-disambiguation against the dev split before the autograder runs against
-the held-out test split.
+Convenience harness: not the autograder. Use it locally to tune the
+disambiguator before submitting.
+
+Usage (with Neo4j running and `data/recipes_kg.cypher` already loaded):
+
+    python run_dev_eval.py
 """
-
 import json
-import sys
-from dataclasses import asdict
+import os
+from pathlib import Path
 
-from linker.link import link
-from linker.score import score
+from neo4j import GraphDatabase
 
-
-def load_jsonl(path):
-    with open(path) as f:
-        return [json.loads(line) for line in f if line.strip()]
+from linker import link, score, GoldSpan
 
 
-def main():
-    docs = load_jsonl("data/dev.jsonl")
-    predictions = []
-    gold = []
-    for doc in docs:
-        results = link(doc["text"], doc["ner_spans"])
-        for r in results:
-            d = asdict(r) if hasattr(r, "__dataclass_fields__") else dict(r)
-            predictions.append(
-                {
-                    "doc_id": doc["doc_id"],
-                    "start": d["start"],
-                    "end": d["end"],
-                    "predicted_uri": d["predicted_uri"],
-                }
-            )
-        for g in doc["gold"]:
-            gold.append(
-                {
-                    "doc_id": doc["doc_id"],
-                    "start": g["span_start"],
-                    "end": g["span_end"],
-                    "gold_uri": g["gold_uri"],
-                }
-            )
-    metrics = score(predictions, gold)
-    print(
-        f"dev precision={metrics['precision']:.4f} "
-        f"recall={metrics['recall']:.4f} "
-        f"f1={metrics['f1']:.4f}"
-    )
+URI = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
+USER = os.environ.get("NEO4J_USER", "neo4j")
+PASSWORD = os.environ.get("NEO4J_PASSWORD", "testtest")
+
+HERE = Path(__file__).parent
+DEV_PATH = HERE / "data" / "dev.jsonl"
+
+
+def load_split(path: Path):
+    docs = []
+    for line in path.read_text().splitlines():
+        if line.strip():
+            docs.append(json.loads(line))
+    return docs
+
+
+def main() -> None:
+    docs = load_split(DEV_PATH)
+    driver = GraphDatabase.driver(URI, auth=(USER, PASSWORD))
+    try:
+        all_predictions = []
+        all_gold = []
+        for d in docs:
+            ner_spans = [tuple(s) for s in d["ner_spans"]]
+            preds = link(driver, d["doc_id"], d["text"], ner_spans)
+            all_predictions.extend(preds)
+            for g in d["gold"]:
+                all_gold.append(GoldSpan(
+                    doc_id=d["doc_id"],
+                    start=g["start"],
+                    end=g["end"],
+                    surface=g["surface"],
+                    gold_node_id=g["gold_node_id"],
+                    gold_type_label=g["gold_type_label"],
+                ))
+        m = score(all_predictions, all_gold)
+        print(f"precision: {m['precision']:.4f}")
+        print(f"recall:    {m['recall']:.4f}")
+        print(f"f1:        {m['f1']:.4f}")
+    finally:
+        driver.close()
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as exc:
-        print(f"run_dev_eval failed: {exc}", file=sys.stderr)
-        sys.exit(1)
+    main()

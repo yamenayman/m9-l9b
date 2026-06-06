@@ -1,6 +1,4 @@
-rdflib>=6.3,<7
-SPARQLWrapper>=2.0,<3
+neo4j>=5.17,<6
+pytest>=8,<9
+python-dotenv>=1.0,<2
 spacy>=3.7,<4
-pandas>=2.0,<3
-requests>=2.31
-pytest>=7.4

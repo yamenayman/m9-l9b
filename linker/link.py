@@ -1,28 +1,45 @@
-"""Orchestrate candidate generation and disambiguation over a set of NER spans."""
+"""Linker orchestrator.
 
-from linker.lookup import DEFAULT_ENDPOINT
+Wires candidates() -> disambiguate() into one pass over the NER spans of
+a document, producing one LinkResult per span.
+"""
+from linker.candidates import candidates
+from linker.disambiguate import disambiguate
 from linker.types import LinkResult
 
 
-def link(text: str, ner_spans: list[dict], endpoint: str = DEFAULT_ENDPOINT) -> list[LinkResult]:
-    """Link each NER span in ``text`` to a KG URI (or NIL).
+def link(
+    driver,
+    doc_id: str,
+    text: str,
+    ner_spans: list[tuple[int, int, str, str]],
+) -> list[LinkResult]:
+    """Orchestrate the linker pipeline for one document.
 
-    Each item in ``ner_spans`` is a dict with keys ``text`` (surface form),
-    ``label`` (NER label string), ``start`` (char offset), ``end`` (exclusive
-    char offset).
+    Args:
+      driver: an open neo4j.GraphDatabase driver.
+      doc_id: identifier of this document (propagated into every LinkResult).
+      text: the document text (currently unused inside the function; reserved
+        for future context features — keep the parameter in the signature
+        because the Integration repo calls link() with it).
+      ner_spans: a list of (start, end, surface, ner_label) tuples in
+        document order.
 
-    For every input span, produce one ``LinkResult`` in the returned list,
-    in the same order. ``reason`` must always be populated — even on NIL
-    outcomes — so downstream debugging can attribute failures.
+    Returns: list[LinkResult], one per input span, in the same order.
 
-    Returns a list of ``LinkResult`` of the same length as ``ner_spans``.
+    Iterate in document order so that doc_resolved grows monotonically and
+    the co-occurrence signal builds up as the document is walked.
     """
-    # TODO: for each span, call candidates(); branch on the size of the
-    # returned set:
-    #   - zero candidates -> NIL with reason "nil-no-candidates"
-    #   - one candidate   -> resolved with reason "resolved-unique"
-    #   - multiple        -> call disambiguate(); resolved-by-type / -by-context
-    #                        on success, "nil-ambiguous" on failure
-    # TODO: assemble doc_context for disambiguate() — e.g., the set of
-    # already-resolved URIs on previously-processed spans in the same doc.
-    raise NotImplementedError("Implement link() — see the lab guide for the task description.")
+    # TODO:
+    # 1. Initialize results = [] and doc_resolved = [].
+    # 2. For each (start, end, surface, ner_label) in ner_spans (in order):
+    #      a. Call candidates(driver, surface).
+    #      b. Call disambiguate(driver, candidates_list, ner_label, doc_resolved).
+    #      c. Construct a LinkResult (predicted_node_id/predicted_type_label
+    #         from the chosen candidate dict, or None on NIL).
+    #      d. Append it to results AND to doc_resolved.
+    # 3. Return results.
+    raise NotImplementedError(
+        "link() is not yet implemented — orchestrate candidates -> disambiguate "
+        "per the Lab guide."
+    )

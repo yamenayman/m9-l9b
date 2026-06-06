@@ -1,38 +1,50 @@
-"""Shared dataclasses for the entity linker.
+"""Shared dataclasses for the linker.
 
-Fully implemented — learners may import but should not modify.
+Fully implemented — do not modify. The Integration repo imports these
+types via the function signatures in linker/link.py and linker/score.py.
 """
-
 from dataclasses import dataclass
-from typing import Optional
+
+
+@dataclass(frozen=True)
+class GoldSpan:
+    """A gold-annotated NER span with its expected KG identity.
+
+    Attributes:
+      doc_id: identifier of the document this span belongs to.
+      start: character offset (inclusive) of the span in the document text.
+      end: character offset (exclusive) of the span.
+      surface: the surface text of the span (the literal substring).
+      gold_node_id: canonical KG node id, or None for NIL (no candidate).
+      gold_type_label: KG label such as "Ingredient" or "Cuisine"; None when NIL.
+    """
+    doc_id: str
+    start: int
+    end: int
+    surface: str
+    gold_node_id: str | None
+    gold_type_label: str | None
 
 
 @dataclass(frozen=True)
 class LinkResult:
-    """One linker output for a single NER span.
+    """A linker prediction for one NER span.
 
-    Attributes
-    ----------
-    span : str
-        The surface form of the NER span (the text the linker saw).
-    predicted_uri : Optional[str]
-        The URI the linker resolved the span to, or ``None`` for NIL.
-    reason : str
-        One of:
-        ``"resolved-unique"`` — a single candidate matched (no disambiguation needed)
-        ``"resolved-by-type"`` — disambiguation picked a candidate via type compatibility
-        ``"resolved-by-context"`` — disambiguation picked a candidate via the
-        learner's second signal (co-occurrence or subClassOf entailment)
-        ``"nil-no-candidates"`` — no candidate matched the surface form
-        ``"nil-ambiguous"`` — multiple candidates survived all disambiguation signals
-    start : int
-        Character offset of the span start in the source text.
-    end : int
-        Character offset of the span end (exclusive).
+    Attributes:
+      doc_id: identifier of the document this span belongs to.
+      start: character offset (inclusive) of the span in the document text.
+      end: character offset (exclusive) of the span.
+      surface: the surface text of the span.
+      predicted_node_id: predicted KG node id, or None for NIL.
+      predicted_type_label: KG label of the predicted node; None when NIL.
+      reason: one of "resolved-unique" | "resolved-by-type" |
+        "resolved-by-context" | "resolved-by-hierarchy" |
+        "nil-no-candidates" | "nil-ambiguous".
     """
-
-    span: str
-    predicted_uri: Optional[str]
-    reason: str
+    doc_id: str
     start: int
     end: int
+    surface: str
+    predicted_node_id: str | None
+    predicted_type_label: str | None
+    reason: str
