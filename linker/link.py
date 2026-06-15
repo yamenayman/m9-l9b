@@ -30,16 +30,27 @@ def link(
     Iterate in document order so that doc_resolved grows monotonically and
     the co-occurrence signal builds up as the document is walked.
     """
-    # TODO:
-    # 1. Initialize results = [] and doc_resolved = [].
-    # 2. For each (start, end, surface, ner_label) in ner_spans (in order):
-    #      a. Call candidates(driver, surface).
-    #      b. Call disambiguate(driver, candidates_list, ner_label, doc_resolved).
-    #      c. Construct a LinkResult (predicted_node_id/predicted_type_label
-    #         from the chosen candidate dict, or None on NIL).
-    #      d. Append it to results AND to doc_resolved.
-    # 3. Return results.
-    raise NotImplementedError(
-        "link() is not yet implemented — orchestrate candidates -> disambiguate "
-        "per the Lab guide."
-    )
+    results: list[LinkResult] = []
+    doc_resolved: list[LinkResult] = []
+    for (start, end, surface, ner_label) in ner_spans:
+        cands = candidates(driver, surface)
+        chosen, reason = disambiguate(driver, cands, ner_label, doc_resolved)
+        if chosen is not None:
+            node_id = chosen["id"]
+            # Pick the first non-Entity label as the type label.
+            type_label = chosen["labels"][0] if chosen["labels"] else None
+        else:
+            node_id = None
+            type_label = None
+        lr = LinkResult(
+            doc_id=doc_id,
+            start=start,
+            end=end,
+            surface=surface,
+            predicted_node_id=node_id,
+            predicted_type_label=type_label,
+            reason=reason,
+        )
+        results.append(lr)
+        doc_resolved.append(lr)
+    return results
